@@ -3,7 +3,7 @@ StudyTutorAI - Lightweight Desktop Server
 Uses Python's built-in http.server + Flask-like routing.
 No Gradio dependency = small EXE + low memory.
 """
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, ThreadingHTTPServer, BaseHTTPRequestHandler
 import json
 import sys
 import os
@@ -198,7 +198,7 @@ fetch('/api/status').then(r=>r.json()).then(d => {
     bar.textContent = '模型已找到 - 首次提问时自动加载';
   } else {
     bar.className = 'status warn';
-    bar.textContent = '未找到模型。请将 Qwen3.5-2B 下载到 models/ 目录以启用AI辅导。';
+    bar.textContent = '未找到模型。请运行 python download_models.py 下载 Qwen2.5-0.5B-Instruct 到 models/ 目录。';
   }
 });
 </script>
@@ -240,14 +240,17 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _get_status(self):
         global _chat_engine, _load_error
+        # Check model dir directly (works in both source and EXE mode)
+        model_exists = False
         try:
-            sys.path.insert(0, str(Path(__file__).parent))
-            from app.backend import ModelManager
-            mm = ModelManager(str(MODEL_DIR))
-            status = mm.get_status()
-            model_exists = status.get("model_exists", False)
+            if MODEL_DIR.exists():
+                # Look for any model with config.json
+                for d in MODEL_DIR.rglob("config.json"):
+                    if "Qwen" in str(d) or "qwen" in str(d):
+                        model_exists = True
+                        break
         except Exception:
-            model_exists = False
+            pass
         return {
             "model_exists": model_exists,
             "model_loaded": _chat_engine is not None,
@@ -304,7 +307,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         return (
             f"我收到了你的问题：\"{question[:100]}\"\n\n"
             f"---\n\n"
-            f"[模型未加载] {_load_error or '请将 Qwen3.5-2B 下载到 models/ 目录以启用AI辅导。'}\n\n"
+            f"[模型未加载] {_load_error or '请运行 python download_models.py 下载模型'}\n\n"
             f"目前可以参考以下学习方法：\n"
             f"- 把问题拆解成更小的子问题\n"
             f"- 在课本中寻找类似的例题\n"
@@ -346,7 +349,7 @@ def main():
     threading.Thread(target=open_browser, daemon=True).start()
 
     # Start server
-    with HTTPServer(("", PORT), RequestHandler) as httpd:
+    with ThreadingHTTPServer(("", PORT), RequestHandler) as httpd:
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
