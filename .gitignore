@@ -1,0 +1,30 @@
+# Models (too large for git, download separately)
+models/
+*.gguf
+*.safetensors
+*.bin
+
+# Build artifacts
+build/
+dist/
+*.spec
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test outputs
+test_*.txt
